@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart'; 
-import 'dart:convert'; 
+import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart'; // Pour Android
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Pour iOS
 
 void main() => runApp(NewsApp());
 
@@ -13,6 +16,7 @@ class NewsApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: NewsPage(),
+      debugShowCheckedModeBanner: false, // Désactive la bannière "debug"
     );
   }
 }
@@ -52,7 +56,7 @@ class _NewsPageState extends State<NewsPage> {
           isLoading = false;
         });
       } else {
-        throw Exception('Failed to load news');
+        throw Exception('Failed to load news: ${response.statusCode}');
       }
     } catch (e) {
       setState(() {
@@ -80,12 +84,14 @@ class _NewsPageState extends State<NewsPage> {
 
   @override
   Widget build(BuildContext context) {
-    List filteredArticles = articles.where((article) {
-      final title = article['title']?.toLowerCase() ?? '';
-      final description = article['description']?.toLowerCase() ?? '';
-      final searchText = _searchText.trim().toLowerCase();
-      return title.contains(searchText) || description.contains(searchText);
-    }).toList();
+    List filteredArticles = _searchText.isEmpty
+        ? articles // Afficher tous les articles si la recherche est vide
+        : articles.where((article) {
+            final title = article['title']?.toLowerCase() ?? '';
+            final description = article['description']?.toLowerCase() ?? '';
+            final searchText = _searchText.trim().toLowerCase();
+            return title.contains(searchText) || description.contains(searchText);
+          }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -144,23 +150,44 @@ class _NewsPageState extends State<NewsPage> {
                                   article['description'] ?? 'No description',
                                   style: TextStyle(color: Colors.grey[700]),
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    isLiked
-                                        ? Icons.favorite
-                                        : Icons.favorite_outline_rounded,
-                                    color: Colors.red[800],
-                                    size: 20,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      if (isLiked) {
-                                        likedArticles.remove(article);
-                                      } else {
-                                        likedArticles.add(article);
-                                      }
-                                    });
-                                  },
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        isLiked
+                                            ? Icons.favorite
+                                            : Icons.favorite_outline_rounded,
+                                        color: Colors.red[800],
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          if (isLiked) {
+                                            likedArticles.remove(article);
+                                          } else {
+                                            likedArticles.add(article);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.open_in_new, // Icône pour ouvrir l'article
+                                        color: Colors.blue[800],
+                                        size: 20,
+                                      ),
+                                      onPressed: () {
+                                        // Ouvrir l'article dans un WebView
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ArticleDetailPage(article: article),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -192,28 +219,9 @@ class ArticleDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(article['title'] ?? 'Article'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (article['urlToImage'] != null)
-              Image.network(article['urlToImage']),
-            SizedBox(height: 16),
-            Text(
-              article['title'] ?? 'No Title',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Text(article['content'] ?? 'No content available'),
-            SizedBox(height: 16),
-          ],
-        ),
-      ),
+    return WebView(
+      url: article['url'] ?? '', // URL de l'article
+      title: article['title'] ?? 'Article', // Titre de l'article
     );
   }
 }
@@ -285,6 +293,56 @@ class _SearchSectionState extends State<SearchSection> {
           ])
         ],
       ),
+    );
+  }
+}
+
+class WebView extends StatefulWidget {
+  final String url;
+  final String title;
+
+  WebView({required this.url, required this.title});
+
+  @override
+  _WebViewPageState createState() => _WebViewPageState();
+}
+
+class _WebViewPageState extends State<WebView> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Configuration du contrôleur WebView
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    _controller = WebViewController.fromPlatformCreationParams(params)
+      ..setJavaScriptMode(JavaScriptMode.unrestricted) // Correction ici
+      ..loadRequest(Uri.parse(widget.url));
+
+    // Configuration spécifique pour Android
+    if (_controller.platform is AndroidWebViewController) {
+      (_controller.platform as AndroidWebViewController)
+          .setMediaPlaybackRequiresUserGesture(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: WebViewWidget(controller: _controller), // Utilisation de WebViewWidget
     );
   }
 }
