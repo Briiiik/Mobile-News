@@ -124,91 +124,146 @@ Future<void> scrapeArticles() async {
 
   @override
   Widget build(BuildContext context) {
-    List filteredArticles = _searchText.isEmpty
-        ? articles // Afficher tous les articles si la recherche est vide
-        : articles.where((article) {
-            final title = article['title']?.toLowerCase() ?? '';
-            final description = article['description']?.toLowerCase() ?? '';
-            final searchText = _searchText.trim().toLowerCase();
-            return title.contains(searchText) || description.contains(searchText);
-          }).toList();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Mobile News'),
-      ),
-      body: Column(
-        children: [
-          SearchSection(
-            onSearchTextChanged: _updateSearchText,
-            onViewLikedArticles: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LikedArticlesPage(likedArticles: likedArticles),
-                ),
-              );
-            },
+    return DefaultTabController(
+      length: 2, // Nombre d'onglets
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Mobile News'),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'API Articles'),
+              Tab(text: 'Scraped Articles'),
+            ],
           ),
-          isLoading
-              ? Expanded(child: Center(child: CircularProgressIndicator()))
-              : Expanded(
-                child: ListView.builder(
-                  itemCount: scrapedArticles.length,
-                  itemBuilder: (context, index) {
-                    final article = scrapedArticles[index];
-                    return Card(
-                      margin: EdgeInsets.all(8.0), // Ajoute une marge autour de chaque article
-                      child: InkWell(
-                        onTap: () {
-                          // Ouvrir l'article dans une WebView ou une autre page
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ArticleDetailPage(article: article),
-                            ),
-                          );
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch, // Étire les éléments horizontalement
-                          children: [
-                            // Afficher l'image si elle existe
-                            if (article['image'].isNotEmpty)
-                              Image.network(
-                                article['image'],
-                                height: 150, // Hauteur fixe pour l'image
-                                fit: BoxFit.cover, // Ajuste l'image pour couvrir l'espace disponible
-                              ),
-                            // Afficher le titre
-                            Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: Text(
-                                article['title'] ?? 'No title',
-                                style: TextStyle(
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.bold,
+        ),
+        body: Column(
+          children: [
+            SearchSection(
+              onSearchTextChanged: _updateSearchText,
+              onViewLikedArticles: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LikedArticlesPage(likedArticles: likedArticles),
+                  ),
+                );
+              },
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  // Articles de l'API
+                  isLoading
+                      ? Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          itemCount: articles.length,
+                          itemBuilder: (context, index) {
+                            final article = articles[index];
+                            return Card(
+                              margin: EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailPage(article: article),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (article['urlToImage'] != null)
+                                      Image.network(
+                                        article['urlToImage'],
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Text(
+                                        article['title'] ?? 'No title',
+                                        style: TextStyle(
+                                          fontSize: 16.0,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                      child: Text(
+                                        article['description'] ?? 'No description',
+                                        style: TextStyle(
+                                          fontSize: 12.0,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            // Afficher l'URL (optionnel)
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                              child: Text(
-                                article['url'] ?? 'No URL',
-                                style: TextStyle(
-                                  fontSize: 12.0,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      ),
-                    );
-                  },
-                ),
+
+                  // Articles scrapés
+                  isLoading
+                      ? Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          itemCount: scrapedArticles.length,
+                          itemBuilder: (context, index) {
+                            final article = scrapedArticles[index];
+                            return Card(
+                              margin: EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailPage(article: article),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (article['image'].isNotEmpty)
+                                      Image.network(
+                                        article['image'],
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Text(
+                                        article['title'] ?? 'No title',
+                                        style: TextStyle(
+                                          fontSize: 16.0,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                      child: Text(
+                                        article['url'] ?? 'No URL',
+                                        style: TextStyle(
+                                          fontSize: 12.0,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ],
               ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
