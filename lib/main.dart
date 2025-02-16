@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart'; // Pour Android
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Pour iOS
+import 'package:html/parser.dart' as parser; // Pour le scraping
 
 void main() => runApp(NewsApp());
 
@@ -31,6 +32,7 @@ class _NewsPageState extends State<NewsPage> {
   final String apiUrl = 'https://newsapi.org/v2/top-headlines?country=us';
   List articles = [];
   List likedArticles = [];
+  List scrapedArticles = []; // Liste pour les articles scrapés
   bool isLoading = true;
   String _searchText = '';
 
@@ -43,7 +45,8 @@ class _NewsPageState extends State<NewsPage> {
   @override
   void initState() {
     super.initState();
-    fetchNews();
+    fetchNews(); // Charge les articles depuis l'API
+    scrapeArticles(); // Scrape les articles depuis une page web
   }
 
   Future<void> fetchNews() async {
@@ -65,6 +68,43 @@ class _NewsPageState extends State<NewsPage> {
       showError(e.toString());
     }
   }
+
+Future<void> scrapeArticles() async {
+  try {
+    final response = await http.get(Uri.parse('https://antilla-martinique.com/?s='));
+    if (response.statusCode == 200) {
+      final document = parser.parse(response.body);
+
+      // Sélectionner tous les articles
+      final articles = document.querySelectorAll('article.l-post');
+
+      setState(() {
+        scrapedArticles = articles.map((article) {
+          // Extraire le lien <a> contenant le titre et l'URL
+          final linkElement = article.querySelector('div.media a.image-link');
+          final title = linkElement?.attributes['title'] ?? 'No title';
+          final url = linkElement?.attributes['href'] ?? '';
+          // final linkImage = linkElement?.attributes['data-bgsrc'] ?? '';
+
+          // Extraire l'image (si présente)
+          final imageElement = linkElement?.querySelector('span');
+          final imageUrl = imageElement?.attributes['data-bgsrc'] ?? '';
+
+          return {
+            'image': imageUrl,
+            'title': title,
+            'url': url,
+            
+          };
+        }).toList();
+      });
+    } else {
+      print('Failed to load web page: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error during scraping: $e');
+  }
+}
 
   void showError(String message) {
     showDialog(
@@ -113,90 +153,61 @@ class _NewsPageState extends State<NewsPage> {
           isLoading
               ? Expanded(child: Center(child: CircularProgressIndicator()))
               : Expanded(
-                  child: ListView.builder(
-                    itemCount: filteredArticles.length,
-                    itemBuilder: (context, index) {
-                      final article = filteredArticles[index];
-                      final isLiked = likedArticles.contains(article);
-                      return GestureDetector(
+                child: ListView.builder(
+                  itemCount: scrapedArticles.length,
+                  itemBuilder: (context, index) {
+                    final article = scrapedArticles[index];
+                    return Card(
+                      margin: EdgeInsets.all(8.0), // Ajoute une marge autour de chaque article
+                      child: InkWell(
                         onTap: () {
-                          showArticleDetail(article);
-                        },
-                        child: Card(
-                          margin: EdgeInsets.all(6.0),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (article['urlToImage'] != null)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8.0),
-                                    child: Image.network(
-                                      article['urlToImage'],
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                SizedBox(height: 8),
-                                Text(
-                                  article['title'] ?? 'No title',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  article['description'] ?? 'No description',
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        isLiked
-                                            ? Icons.favorite
-                                            : Icons.favorite_outline_rounded,
-                                        color: Colors.red[800],
-                                        size: 20,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          if (isLiked) {
-                                            likedArticles.remove(article);
-                                          } else {
-                                            likedArticles.add(article);
-                                          }
-                                        });
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.open_in_new, // Icône pour ouvrir l'article
-                                        color: Colors.blue[800],
-                                        size: 20,
-                                      ),
-                                      onPressed: () {
-                                        // Ouvrir l'article dans un WebView
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ArticleDetailPage(article: article),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          // Ouvrir l'article dans une WebView ou une autre page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ArticleDetailPage(article: article),
                             ),
-                          ),
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch, // Étire les éléments horizontalement
+                          children: [
+                            // Afficher l'image si elle existe
+                            if (article['image'].isNotEmpty)
+                              Image.network(
+                                article['image'],
+                                height: 150, // Hauteur fixe pour l'image
+                                fit: BoxFit.cover, // Ajuste l'image pour couvrir l'espace disponible
+                              ),
+                            // Afficher le titre
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text(
+                                article['title'] ?? 'No title',
+                                style: TextStyle(
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            // Afficher l'URL (optionnel)
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                              child: Text(
+                                article['url'] ?? 'No URL',
+                                style: TextStyle(
+                                  fontSize: 12.0,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
+              ),
         ],
       ),
     );
