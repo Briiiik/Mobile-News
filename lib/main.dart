@@ -124,6 +124,25 @@ Future<void> scrapeArticles() async {
 
   @override
   Widget build(BuildContext context) {
+    // Filtrer les articles de l'API en fonction de _searchText
+    final filteredApiArticles = _searchText.isEmpty
+        ? articles
+        : articles.where((article) {
+            final title = article['title']?.toLowerCase() ?? '';
+            final description = article['description']?.toLowerCase() ?? '';
+            final searchText = _searchText.trim().toLowerCase();
+            return title.contains(searchText) || description.contains(searchText);
+          }).toList();
+
+    // Filtrer les articles scrapés en fonction de _searchText
+    final filteredScrapedArticles = _searchText.isEmpty
+        ? scrapedArticles
+        : scrapedArticles.where((article) {
+            final title = article['title']?.toLowerCase() ?? '';
+            final searchText = _searchText.trim().toLowerCase();
+            return title.contains(searchText);
+          }).toList();
+
     return DefaultTabController(
       length: 2, // Nombre d'onglets
       child: Scaffold(
@@ -155,110 +174,114 @@ Future<void> scrapeArticles() async {
                   // Articles de l'API
                   isLoading
                       ? Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          itemCount: articles.length,
-                          itemBuilder: (context, index) {
-                            final article = articles[index];
-                            return Card(
-                              margin: EdgeInsets.all(8.0),
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ArticleDetailPage(article: article),
-                                    ),
-                                  );
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (article['urlToImage'] != null)
-                                      Image.network(
-                                        article['urlToImage'],
-                                        height: 150,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    Padding(
-                                      padding: EdgeInsets.all(8.0),
-                                      child: Text(
-                                        article['title'] ?? 'No title',
-                                        style: TextStyle(
-                                          fontSize: 16.0,
-                                          fontWeight: FontWeight.bold,
+                      : filteredApiArticles.isEmpty
+                          ? Center(child: Text('Aucun résultat trouvé'))
+                          : ListView.builder(
+                              itemCount: filteredApiArticles.length,
+                              itemBuilder: (context, index) {
+                                final article = filteredApiArticles[index];
+                                return Card(
+                                  margin: EdgeInsets.all(8.0),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ArticleDetailPage(article: article),
                                         ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                      child: Text(
-                                        article['description'] ?? 'No description',
-                                        style: TextStyle(
-                                          fontSize: 12.0,
-                                          color: Colors.grey,
+                                      );
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        if (article['urlToImage'] != null)
+                                          Image.network(
+                                            article['urlToImage'],
+                                            height: 150,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        Padding(
+                                          padding: EdgeInsets.all(8.0),
+                                          child: Text(
+                                            article['title'] ?? 'No title',
+                                            style: TextStyle(
+                                              fontSize: 16.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                          child: Text(
+                                            article['description'] ?? 'No description',
+                                            style: TextStyle(
+                                              fontSize: 12.0,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                  ),
+                                );
+                              },
+                            ),
 
                   // Articles scrapés
                   isLoading
                       ? Center(child: CircularProgressIndicator())
-                      : ListView.builder(
-                          itemCount: scrapedArticles.length,
-                          itemBuilder: (context, index) {
-                            final article = scrapedArticles[index];
-                            return Card(
-                              margin: EdgeInsets.all(8.0),
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ArticleDetailPage(article: article),
-                                    ),
-                                  );
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (article['image'].isNotEmpty)
-                                      Image.network(
-                                        article['image'],
-                                        height: 150,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    Padding(
-                                      padding: EdgeInsets.all(8.0),
-                                      child: Text(
-                                        article['title'] ?? 'No title',
-                                        style: TextStyle(
-                                          fontSize: 16.0,
-                                          fontWeight: FontWeight.bold,
+                      : filteredScrapedArticles.isEmpty
+                          ? Center(child: Text('Aucun résultat trouvé'))
+                          : ListView.builder(
+                              itemCount: filteredScrapedArticles.length,
+                              itemBuilder: (context, index) {
+                                final article = filteredScrapedArticles[index];
+                                return Card(
+                                  margin: EdgeInsets.all(8.0),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ArticleDetailPage(article: article),
                                         ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                      child: Text(
-                                        article['url'] ?? 'No URL',
-                                        style: TextStyle(
-                                          fontSize: 12.0,
-                                          color: Colors.grey,
+                                      );
+                                    },
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        if (article['image'].isNotEmpty)
+                                          Image.network(
+                                            article['image'],
+                                            height: 150,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        Padding(
+                                          padding: EdgeInsets.all(8.0),
+                                          child: Text(
+                                            article['title'] ?? 'No title',
+                                            style: TextStyle(
+                                              fontSize: 16.0,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                          child: Text(
+                                            article['url'] ?? 'No URL',
+                                            style: TextStyle(
+                                              fontSize: 12.0,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                  ),
+                                );
+                              },
+                            ),
                 ],
               ),
             ),
