@@ -180,6 +180,8 @@ Future<void> scrapeArticles() async {
                               itemCount: filteredApiArticles.length,
                               itemBuilder: (context, index) {
                                 final article = filteredApiArticles[index];
+                                final isLiked = likedArticles.contains(article);
+
                                 return Card(
                                   margin: EdgeInsets.all(8.0),
                                   child: InkWell(
@@ -202,12 +204,33 @@ Future<void> scrapeArticles() async {
                                           ),
                                         Padding(
                                           padding: EdgeInsets.all(8.0),
-                                          child: Text(
-                                            article['title'] ?? 'No title',
-                                            style: TextStyle(
-                                              fontSize: 16.0,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  article['title'] ?? 'No title',
+                                                  style: TextStyle(
+                                                    fontSize: 16.0,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  isLiked ? Icons.favorite : Icons.favorite_border,
+                                                  color: isLiked ? Colors.red : Colors.grey,
+                                                ),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    if (isLiked) {
+                                                      likedArticles.remove(article);
+                                                    } else {
+                                                      likedArticles.add(article);
+                                                    }
+                                                  });
+                                                },
+                                              ),
+                                            ],
                                           ),
                                         ),
                                         Padding(
@@ -236,6 +259,8 @@ Future<void> scrapeArticles() async {
                               itemCount: filteredScrapedArticles.length,
                               itemBuilder: (context, index) {
                                 final article = filteredScrapedArticles[index];
+                                final isLiked = likedArticles.contains(article);
+
                                 return Card(
                                   margin: EdgeInsets.all(8.0),
                                   child: InkWell(
@@ -258,12 +283,33 @@ Future<void> scrapeArticles() async {
                                           ),
                                         Padding(
                                           padding: EdgeInsets.all(8.0),
-                                          child: Text(
-                                            article['title'] ?? 'No title',
-                                            style: TextStyle(
-                                              fontSize: 16.0,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  article['title'] ?? 'No title',
+                                                  style: TextStyle(
+                                                    fontSize: 16.0,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  isLiked ? Icons.favorite : Icons.favorite_border,
+                                                  color: isLiked ? Colors.red : Colors.grey,
+                                                ),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    if (isLiked) {
+                                                      likedArticles.remove(article);
+                                                    } else {
+                                                      likedArticles.add(article);
+                                                    }
+                                                  });
+                                                },
+                                              ),
+                                            ],
                                           ),
                                         ),
                                         Padding(
@@ -453,9 +499,50 @@ class LikedArticlesPage extends StatelessWidget {
               itemCount: likedArticles.length,
               itemBuilder: (context, index) {
                 final article = likedArticles[index];
-                return ListTile(
-                  title: Text(article['title'] ?? 'No title'),
-                  subtitle: Text(article['description'] ?? 'No description'),
+                return Card(
+                  margin: EdgeInsets.all(8.0),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ArticleDetailPage(article: article),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Afficher l'image si elle est disponible
+                        if (article['urlToImage'] != null || article['image'] != null)
+                          Image.network(
+                            article['urlToImage'] ?? article['image'],
+                            height: 150,
+                            fit: BoxFit.cover,
+                          ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            article['title'] ?? 'No title',
+                            style: TextStyle(
+                              fontSize: 16.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                          child: Text(
+                            article['description'] ?? article['url'] ?? 'No description',
+                            style: TextStyle(
+                              fontSize: 12.0,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
