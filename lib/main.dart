@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart'; // Pour Android
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Pour iOS
 import 'package:html/parser.dart' as parser; // Pour le scraping
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(NewsApp());
 
@@ -32,23 +33,19 @@ class _NewsPageState extends State<NewsPage> {
   final String apiUrl = 'https://newsapi.org/v2/top-headlines?country=us';
   List articles = [];
   List likedArticles = [];
-  List scrapedArticles = []; // Liste pour les articles scrapés
+  List scrapedArticles = [];
   bool isLoading = true;
   String _searchText = '';
-
-  void _updateSearchText(String text) {
-    setState(() {
-      _searchText = text;
-    });
-  }
 
   @override
   void initState() {
     super.initState();
     fetchNews(); // Charge les articles depuis l'API
     scrapeArticles(); // Scrape les articles depuis une page web
+    _loadLikedArticles(); // Charge les articles likés au démarrage
   }
 
+  // Charge les articles depuis l'API
   Future<void> fetchNews() async {
     try {
       final response = await http.get(Uri.parse('$apiUrl&apiKey=$apiKey'));
@@ -69,58 +66,98 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-Future<void> scrapeArticles() async {
-  try {
-    final response = await http.get(Uri.parse('https://antilla-martinique.com/?s='));
-    if (response.statusCode == 200) {
-      final document = parser.parse(response.body);
+  // Scrape les articles depuis une page web
+  Future<void> scrapeArticles() async {
+    try {
+      final response = await http.get(Uri.parse('https://antilla-martinique.com/?s='));
+      if (response.statusCode == 200) {
+        final document = parser.parse(response.body);
 
-      // Sélectionner tous les articles
-      final articles = document.querySelectorAll('article.l-post');
+        // Sélectionner tous les articles
+        final articles = document.querySelectorAll('article.l-post');
 
-      setState(() {
-        scrapedArticles = articles.map((article) {
-          // Extraire le lien <a> contenant le titre et l'URL
-          final linkElement = article.querySelector('div.media a.image-link');
-          final title = linkElement?.attributes['title'] ?? 'No title';
-          final url = linkElement?.attributes['href'] ?? '';
-          // final linkImage = linkElement?.attributes['data-bgsrc'] ?? '';
+        setState(() {
+          scrapedArticles = articles.map((article) {
+            // Extraire le lien <a> contenant le titre et l'URL
+            final linkElement = article.querySelector('div.media a.image-link');
+            final title = linkElement?.attributes['title'] ?? 'No title';
+            final url = linkElement?.attributes['href'] ?? '';
 
-          // Extraire l'image (si présente)
-          final imageElement = linkElement?.querySelector('span');
-          final imageUrl = imageElement?.attributes['data-bgsrc'] ?? '';
+            // Extraire l'image (si présente)
+            final imageElement = linkElement?.querySelector('span');
+            final imageUrl = imageElement?.attributes['data-bgsrc'] ?? '';
 
-          return {
-            'image': imageUrl,
-            'title': title,
-            'url': url,
-            
-          };
-        }).toList();
-      });
-    } else {
-      print('Failed to load web page: ${response.statusCode}');
+            return {
+              'image': imageUrl,
+              'title': title,
+              'url': url,
+            };
+          }).toList();
+        });
+      } else {
+        print('Failed to load web page: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error during scraping: $e');
     }
-  } catch (e) {
-    print('Error during scraping: $e');
   }
+
+  // Charge les articles likés depuis SharedPreferences
+  Future<void> _loadLikedArticles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final likedArticlesJson = prefs.getStringList('likedArticles') ?? [];
+    setState(() {
+      likedArticles = likedArticlesJson.map((json) => jsonDecode(json) as Map<String, dynamic>).toList();
+    });
+  }
+
+  // Sauvegarde les articles likés dans SharedPreferences
+  Future<void> _saveLikedArticles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final likedArticlesJson = likedArticles.map((article) => jsonEncode(article)).toList();
+    await prefs.setStringList('likedArticles', likedArticlesJson);
+  }
+
+  void _updateSearchText(String text) {
+    setState(() {
+      _searchText = text;
+    });
+  }
+
+  // Ajoute ou retire un article de la liste des likés
+  void _toggleLikeArticle(Map article) {
+    setState(() {
+      if (likedArticles.contains(article)) {
+        likedArticles.remove(article);
+      } else {
+        likedArticles.add(article);
+      }
+    });
+    _saveLikedArticles(); // Sauvegarde les articles likés après chaque modification
+    _printArticleSize(article);
+  }
+  void _printArticleSize(Map article) {
+  final jsonString = jsonEncode(article); // Convertir l'article en JSON
+  final sizeInBytes = jsonString.length; // Taille en octets
+  final sizeInKb = sizeInBytes / 1024; // Taille en kilo-octets
+  print('fjvndfjvnfjvne');
+  debugPrint('Taille de l\'article : $sizeInBytes octets (${sizeInKb.toStringAsFixed(2)} Ko)');
 }
 
-  void showError(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          )
-        ],
-      ),
-    );
+void _printAllArticlesSize(List articles) {
+  int totalSizeInBytes = 0;
+
+  for (final article in articles) {
+    final jsonString = jsonEncode(article); // Convertir l'article en JSON
+    totalSizeInBytes += jsonString.length; // Ajouter la taille à la somme totale
   }
+
+  final totalSizeInKb = totalSizeInBytes / 1024; // Taille totale en kilo-octets
+
+  print('Taille totale des articles : $totalSizeInBytes octets (${totalSizeInKb.toStringAsFixed(2)} Ko)');
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +181,7 @@ Future<void> scrapeArticles() async {
           }).toList();
 
     return DefaultTabController(
-      length: 2, // Nombre d'onglets
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text('Mobile News'),
@@ -221,13 +258,7 @@ Future<void> scrapeArticles() async {
                                                   color: isLiked ? Colors.red : Colors.grey,
                                                 ),
                                                 onPressed: () {
-                                                  setState(() {
-                                                    if (isLiked) {
-                                                      likedArticles.remove(article);
-                                                    } else {
-                                                      likedArticles.add(article);
-                                                    }
-                                                  });
+                                                  _toggleLikeArticle(article); // Utilisez la nouvelle méthode
                                                 },
                                               ),
                                             ],
@@ -300,13 +331,7 @@ Future<void> scrapeArticles() async {
                                                   color: isLiked ? Colors.red : Colors.grey,
                                                 ),
                                                 onPressed: () {
-                                                  setState(() {
-                                                    if (isLiked) {
-                                                      likedArticles.remove(article);
-                                                    } else {
-                                                      likedArticles.add(article);
-                                                    }
-                                                  });
+                                                  _toggleLikeArticle(article); // Utilisez la nouvelle méthode
                                                 },
                                               ),
                                             ],
@@ -337,11 +362,18 @@ Future<void> scrapeArticles() async {
     );
   }
 
-  void showArticleDetail(Map article) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ArticleDetailPage(article: article),
+  void showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          )
+        ],
       ),
     );
   }
