@@ -34,6 +34,8 @@ dependencies:
   webview_flutter: ^4.10.0
   html: ^0.15.0
   shared_preferences: ^2.0.6
+  sqflite: ^2.3.2
+  path_provider: ^2.1.5
 
 
 

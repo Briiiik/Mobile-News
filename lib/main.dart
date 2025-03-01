@@ -7,6 +7,9 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Po
 import 'package:html/parser.dart' as parser; // Pour le scraping
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'database_helper.dart';
+
+
 void main() => runApp(NewsApp());
 
 class NewsApp extends StatelessWidget {
@@ -29,6 +32,7 @@ class NewsPage extends StatefulWidget {
 }
 
 class _NewsPageState extends State<NewsPage> {
+  final DatabaseHelper _dbHelper = DatabaseHelper();
   final String apiKey = '00e79c1304e94839ac703ee4b0ccf4fe';
   final String apiUrl = 'https://newsapi.org/v2/top-headlines?country=us';
   List articles = [];
@@ -102,14 +106,6 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // Charge les articles likés depuis SharedPreferences
-  Future<void> _loadLikedArticles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final likedArticlesJson = prefs.getStringList('likedArticles') ?? [];
-    setState(() {
-      likedArticles = likedArticlesJson.map((json) => jsonDecode(json) as Map<String, dynamic>).toList();
-    });
-  }
 
   // Sauvegarde les articles likés dans SharedPreferences
   Future<void> _saveLikedArticles() async {
@@ -124,40 +120,32 @@ class _NewsPageState extends State<NewsPage> {
     });
   }
 
-  // Ajoute ou retire un article de la liste des likés
-  void _toggleLikeArticle(Map article) {
+  // Charger les articles likés depuis SQLite
+  Future<void> _loadLikedArticles() async {
+    final likedArticlesFromDb = await _dbHelper.getLikedArticles();
     setState(() {
-      if (likedArticles.contains(article)) {
-        likedArticles.remove(article);
-      } else {
-        likedArticles.add(article);
-      }
+      likedArticles = likedArticlesFromDb;
     });
-    _saveLikedArticles(); // Sauvegarde les articles likés après chaque modification
-    _printArticleSize(article);
-  }
-  void _printArticleSize(Map article) {
-  final jsonString = jsonEncode(article); // Convertir l'article en JSON
-  final sizeInBytes = jsonString.length; // Taille en octets
-  final sizeInKb = sizeInBytes / 1024; // Taille en kilo-octets
-  print('fjvndfjvnfjvne');
-  debugPrint('Taille de l\'article : $sizeInBytes octets (${sizeInKb.toStringAsFixed(2)} Ko)');
-}
-
-void _printAllArticlesSize(List articles) {
-  int totalSizeInBytes = 0;
-
-  for (final article in articles) {
-    final jsonString = jsonEncode(article); // Convertir l'article en JSON
-    totalSizeInBytes += jsonString.length; // Ajouter la taille à la somme totale
   }
 
-  final totalSizeInKb = totalSizeInBytes / 1024; // Taille totale en kilo-octets
+  // Ajouter ou supprimer un article liké
+  void _toggleLikeArticle(Map article) async {
+    final isLiked = likedArticles.any((a) => a['url'] == article['url']);
 
-  print('Taille totale des articles : $totalSizeInBytes octets (${totalSizeInKb.toStringAsFixed(2)} Ko)');
-}
+    if (isLiked) {
+      await _dbHelper.deleteArticle(article['url']);
+    } else {
+      await _dbHelper.insertArticle({
+        'title': article['title'],
+        'description': article['description'],
+        'url': article['url'],
+        'image': article['urlToImage'] ?? article['image'],
+      });
+    }
 
-
+    // Recharger les articles likés
+    _loadLikedArticles();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -545,10 +533,9 @@ class LikedArticlesPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Afficher l'image si elle est disponible
-                        if (article['urlToImage'] != null || article['image'] != null)
+                        if (article['image'] != null)
                           Image.network(
-                            article['urlToImage'] ?? article['image'],
+                            article['image'],
                             height: 150,
                             fit: BoxFit.cover,
                           ),
