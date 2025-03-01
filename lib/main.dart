@@ -124,28 +124,32 @@ class _NewsPageState extends State<NewsPage> {
   Future<void> _loadLikedArticles() async {
     final likedArticlesFromDb = await _dbHelper.getLikedArticles();
     setState(() {
-      likedArticles = likedArticlesFromDb;
+      likedArticles = List<Map<String, dynamic>>.from(likedArticlesFromDb);
     });
   }
 
   // Ajouter ou supprimer un article liké
   void _toggleLikeArticle(Map article) async {
-    final isLiked = likedArticles.any((a) => a['url'] == article['url']);
+  final isLiked = likedArticles.any((a) => a['url'] == article['url']);
 
-    if (isLiked) {
-      await _dbHelper.deleteArticle(article['url']);
-    } else {
-      await _dbHelper.insertArticle({
-        'title': article['title'],
-        'description': article['description'],
-        'url': article['url'],
-        'image': article['urlToImage'] ?? article['image'],
-      });
-    }
-
-    // Recharger les articles likés
-    _loadLikedArticles();
+  if (isLiked) {
+    await _dbHelper.deleteArticle(article['url']);
+    setState(() {
+      likedArticles.removeWhere((a) => a['url'] == article['url']);
+    });
+  } else {
+    await _dbHelper.insertArticle({
+      'title': article['title'],
+      'description': article['description'],
+      'url': article['url'],
+      'image': article['urlToImage'] ?? article['image'],
+    });
+    setState(() {
+      likedArticles.add(article);
+    });
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +209,7 @@ class _NewsPageState extends State<NewsPage> {
                               itemCount: filteredApiArticles.length,
                               itemBuilder: (context, index) {
                                 final article = filteredApiArticles[index];
-                                final isLiked = likedArticles.contains(article);
+                                final isLiked = likedArticles.any((a) => a['url'] == article['url']);
 
                                 return Card(
                                   margin: EdgeInsets.all(8.0),
