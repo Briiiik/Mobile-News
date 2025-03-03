@@ -37,7 +37,8 @@ class _NewsPageState extends State<NewsPage> {
   final String apiUrl = 'https://newsapi.org/v2/top-headlines?country=us';
   List articles = [];
   List likedArticles = [];
-  List scrapedArticles = [];
+  List scrapedArticlesAntilla  = [];
+  List scrapedArticlesRci  = [];
   bool isLoading = true;
   String _searchText = '';
 
@@ -45,7 +46,8 @@ class _NewsPageState extends State<NewsPage> {
   void initState() {
     super.initState();
     fetchNews(); // Charge les articles depuis l'API
-    scrapeArticles(); // Scrape les articles depuis une page web
+    scrapeArticles(); // Scrape les articles depuis Antilla
+    scrapeArticlesRci(); // Scrape les articles depuis Rci
     _loadLikedArticles(); // Charge les articles likés au démarrage
   }
 
@@ -70,7 +72,7 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // Scrape les articles depuis une page web
+  // Scrape les articles depuis une page web (Antilla)
   Future<void> scrapeArticles() async {
     try {
       final response = await http.get(Uri.parse('https://antilla-martinique.com/?s='));
@@ -81,7 +83,7 @@ class _NewsPageState extends State<NewsPage> {
         final articles = document.querySelectorAll('article.l-post');
 
         setState(() {
-          scrapedArticles = articles.map((article) {
+          scrapedArticlesAntilla  = articles.map((article) {
             // Extraire le lien <a> contenant le titre et l'URL
             final linkElement = article.querySelector('div.media a.image-link');
             final title = linkElement?.attributes['title'] ?? 'No title';
@@ -105,6 +107,65 @@ class _NewsPageState extends State<NewsPage> {
       print('Error during scraping: $e');
     }
   }
+
+  Future<void> scrapeArticlesRci() async {
+  final baseUrl = 'https://rci.fm/martinique/avis-d-obseques?populate=';
+  final totalPages = 144; // Nombre total de pages
+  List<Map<String, String>> allArticles = [];
+
+  for (int page = 1; page <= totalPages; page++) {
+    final url = page == 1 ? baseUrl : '$baseUrl&pg=$page';
+    print('Scraping page $page: $url');
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final document = parser.parse(response.body);
+
+        // Sélectionner tous les articles
+        final articles = document.querySelectorAll('div.col-lg-6.col-md-6.col-sm-12.col-xs-12.aviso');
+        print('Nombre d\'articles trouvés sur la page $page : ${articles.length}');
+
+        final pageArticles = articles.map((article) {
+          // Extraire le lien <a> contenant le titre et l'URL
+          final linkElement = article.querySelector('div.place_1 div.d-none.d-md-block div.funeral-show div.funeral-box div.info span a.noa');
+          final title = linkElement?.text?.trim() ?? 'No title';
+          final url = linkElement?.attributes['href'] ?? '';
+
+          final fullUrl = url.startsWith('http') ? url : 'https://rci.fm$url';
+
+          // Extraire l'image (si présente)
+          final imageElement = article.querySelector('div.place_1 div.d-none.d-md-block div.funeral-show div.funeral-box div.image img');
+          final imageUrl = imageElement?.attributes['src'] ?? '';
+
+          return {
+            'image': imageUrl,
+            'title': title,
+            'url': fullUrl,
+          };
+        }).toList();
+
+        allArticles.addAll(pageArticles);
+      } else {
+        print('Failed to load page $page: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error during scraping page $page: $e');
+    }
+  }
+
+  // Afficher les articles scrapés dans les logs
+  print('Articles RCI scrapés : ${allArticles.length}');
+  allArticles.forEach((article) {
+    print('Titre : ${article['title']}');
+    print('URL : ${article['url']}');
+    print('Image : ${article['image']}');
+  });
+
+  setState(() {
+    scrapedArticlesRci  = allArticles;
+  });
+}
 
 
   // Sauvegarde les articles likés dans SharedPreferences
@@ -164,194 +225,276 @@ class _NewsPageState extends State<NewsPage> {
           }).toList();
 
     // Filtrer les articles scrapés en fonction de _searchText
-    final filteredScrapedArticles = _searchText.isEmpty
-        ? scrapedArticles
-        : scrapedArticles.where((article) {
-            final title = article['title']?.toLowerCase() ?? '';
-            final searchText = _searchText.trim().toLowerCase();
-            return title.contains(searchText);
-          }).toList();
+    final filteredScrapedArticlesAntilla = _searchText.isEmpty
+    ? scrapedArticlesAntilla
+    : scrapedArticlesAntilla.where((article) {
+        final title = article['title']?.toLowerCase() ?? '';
+        final searchText = _searchText.trim().toLowerCase();
+        return title.contains(searchText);
+      }).toList();
+
+  final filteredScrapedArticlesRci = _searchText.isEmpty
+      ? scrapedArticlesRci
+      : scrapedArticlesRci.where((article) {
+          final title = article['title']?.toLowerCase() ?? '';
+          final searchText = _searchText.trim().toLowerCase();
+          return title.contains(searchText);
+        }).toList();
 
     return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Mobile News'),
-          bottom: TabBar(
-            tabs: [
-              Tab(text: 'API Articles'),
-              Tab(text: 'Scraped Articles'),
+  length: 3, // Ajoutez un troisième onglet
+  child: Scaffold(
+    appBar: AppBar(
+      title: Text('Mobile News'),
+      bottom: TabBar(
+        tabs: [
+          Tab(text: 'API Articles'),
+          Tab(text: 'Antilla Articles'),
+          Tab(text: 'RCI Articles'), // Nouvel onglet pour RCI
+        ],
+      ),
+    ),
+    body: Column(
+      children: [
+        SearchSection(
+          onSearchTextChanged: _updateSearchText,
+          onViewLikedArticles: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LikedArticlesPage(likedArticles: likedArticles),
+              ),
+            );
+          },
+        ),
+        Expanded(
+          child: TabBarView(
+            children: [
+              // Articles de l'API
+              isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : filteredApiArticles.isEmpty
+                      ? Center(child: Text('Aucun résultat trouvé'))
+                      : ListView.builder(
+                          itemCount: filteredApiArticles.length,
+                          itemBuilder: (context, index) {
+                            final article = filteredApiArticles[index];
+                            final isLiked = likedArticles.any((a) => a['url'] == article['url']);
+
+                            return Card(
+                              margin: EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailPage(article: article),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (article['urlToImage'] != null)
+                                      Image.network(
+                                        article['urlToImage'],
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              article['title'] ?? 'No title',
+                                              style: TextStyle(
+                                                fontSize: 16.0,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              isLiked ? Icons.favorite : Icons.favorite_border,
+                                              color: isLiked ? Colors.red : Colors.grey,
+                                            ),
+                                            onPressed: () {
+                                              _toggleLikeArticle(article);
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                      child: Text(
+                                        article['description'] ?? 'No description',
+                                        style: TextStyle(
+                                          fontSize: 12.0,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+              // Articles scrapés depuis Antilla
+              isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : filteredScrapedArticlesAntilla.isEmpty
+                      ? Center(child: Text('Aucun résultat trouvé'))
+                      : ListView.builder(
+                          itemCount: filteredScrapedArticlesAntilla.length,
+                          itemBuilder: (context, index) {
+                            final article = filteredScrapedArticlesAntilla[index];
+                            final isLiked = likedArticles.contains(article);
+
+                            return Card(
+                              margin: EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailPage(article: article),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (article['image'].isNotEmpty)
+                                      Image.network(
+                                        article['image'],
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              article['title'] ?? 'No title',
+                                              style: TextStyle(
+                                                fontSize: 16.0,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              isLiked ? Icons.favorite : Icons.favorite_border,
+                                              color: isLiked ? Colors.red : Colors.grey,
+                                            ),
+                                            onPressed: () {
+                                              _toggleLikeArticle(article);
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                      child: Text(
+                                        article['url'] ?? 'No URL',
+                                        style: TextStyle(
+                                          fontSize: 12.0,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+              // Articles scrapés depuis RCI
+              isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : filteredScrapedArticlesRci.isEmpty
+                      ? Center(child: Text('Aucun résultat trouvé'))
+                      : ListView.builder(
+                          itemCount: filteredScrapedArticlesRci.length,
+                          itemBuilder: (context, index) {
+                            final article = filteredScrapedArticlesRci[index];
+                            final isLiked = likedArticles.contains(article);
+
+                            return Card(
+                              margin: EdgeInsets.all(8.0),
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArticleDetailPage(article: article),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (article['image'].isNotEmpty)
+                                      Image.network(
+                                        article['image'],
+                                        height: 150,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              article['title'] ?? 'No title',
+                                              style: TextStyle(
+                                                fontSize: 16.0,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              isLiked ? Icons.favorite : Icons.favorite_border,
+                                              color: isLiked ? Colors.red : Colors.grey,
+                                            ),
+                                            onPressed: () {
+                                              _toggleLikeArticle(article);
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                      child: Text(
+                                        article['url'] ?? 'No URL',
+                                        style: TextStyle(
+                                          fontSize: 12.0,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
             ],
           ),
         ),
-        body: Column(
-          children: [
-            SearchSection(
-              onSearchTextChanged: _updateSearchText,
-              onViewLikedArticles: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LikedArticlesPage(likedArticles: likedArticles),
-                  ),
-                );
-              },
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  // Articles de l'API
-                  isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : filteredApiArticles.isEmpty
-                          ? Center(child: Text('Aucun résultat trouvé'))
-                          : ListView.builder(
-                              itemCount: filteredApiArticles.length,
-                              itemBuilder: (context, index) {
-                                final article = filteredApiArticles[index];
-                                final isLiked = likedArticles.any((a) => a['url'] == article['url']);
-
-                                return Card(
-                                  margin: EdgeInsets.all(8.0),
-                                  child: InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ArticleDetailPage(article: article),
-                                        ),
-                                      );
-                                    },
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        if (article['urlToImage'] != null)
-                                          Image.network(
-                                            article['urlToImage'],
-                                            height: 150,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  article['title'] ?? 'No title',
-                                                  style: TextStyle(
-                                                    fontSize: 16.0,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                              IconButton(
-                                                icon: Icon(
-                                                  isLiked ? Icons.favorite : Icons.favorite_border,
-                                                  color: isLiked ? Colors.red : Colors.grey,
-                                                ),
-                                                onPressed: () {
-                                                  _toggleLikeArticle(article); // Utilisez la nouvelle méthode
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                          child: Text(
-                                            article['description'] ?? 'No description',
-                                            style: TextStyle(
-                                              fontSize: 12.0,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-
-                  // Articles scrapés
-                  isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : filteredScrapedArticles.isEmpty
-                          ? Center(child: Text('Aucun résultat trouvé'))
-                          : ListView.builder(
-                              itemCount: filteredScrapedArticles.length,
-                              itemBuilder: (context, index) {
-                                final article = filteredScrapedArticles[index];
-                                final isLiked = likedArticles.contains(article);
-
-                                return Card(
-                                  margin: EdgeInsets.all(8.0),
-                                  child: InkWell(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ArticleDetailPage(article: article),
-                                        ),
-                                      );
-                                    },
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        if (article['image'].isNotEmpty)
-                                          Image.network(
-                                            article['image'],
-                                            height: 150,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  article['title'] ?? 'No title',
-                                                  style: TextStyle(
-                                                    fontSize: 16.0,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                              IconButton(
-                                                icon: Icon(
-                                                  isLiked ? Icons.favorite : Icons.favorite_border,
-                                                  color: isLiked ? Colors.red : Colors.grey,
-                                                ),
-                                                onPressed: () {
-                                                  _toggleLikeArticle(article); // Utilisez la nouvelle méthode
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                          child: Text(
-                                            article['url'] ?? 'No URL',
-                                            style: TextStyle(
-                                              fontSize: 12.0,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      ],
+    ),
+  ),
+);
   }
 
   void showError(String message) {
