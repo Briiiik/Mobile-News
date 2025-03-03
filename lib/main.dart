@@ -110,7 +110,7 @@ class _NewsPageState extends State<NewsPage> {
 
   Future<void> scrapeArticlesRci() async {
   final baseUrl = 'https://rci.fm/martinique/avis-d-obseques?populate=';
-  final totalPages = 144; // Nombre total de pages
+  final totalPages = 10; // Limitez à 10 pages pour le débogage
   List<Map<String, String>> allArticles = [];
 
   for (int page = 1; page <= totalPages; page++) {
@@ -127,23 +127,34 @@ class _NewsPageState extends State<NewsPage> {
         print('Nombre d\'articles trouvés sur la page $page : ${articles.length}');
 
         final pageArticles = articles.map((article) {
-          // Extraire le lien <a> contenant le titre et l'URL
-          final linkElement = article.querySelector('div.place_1 div.d-none.d-md-block div.funeral-show div.funeral-box div.info span a.noa');
-          final title = linkElement?.text?.trim() ?? 'No title';
-          final url = linkElement?.attributes['href'] ?? '';
+          List<Map<String, String>> articlesInPlace = [];
 
-          final fullUrl = url.startsWith('http') ? url : 'https://rci.fm$url';
+          // Parcourir les 5 articles (place_1 à place_5)
+          for (int place = 1; place <= 5; place++) {
+            final div = 'div.place_$place';
+            final linkElement = article.querySelector('$div div.d-none.d-md-block div.funeral-show div.funeral-box div.info span a.noa');
 
-          // Extraire l'image (si présente)
-          final imageElement = article.querySelector('div.place_1 div.d-none.d-md-block div.funeral-show div.funeral-box div.image img');
-          final imageUrl = imageElement?.attributes['src'] ?? '';
+            if (linkElement != null) {
+              final title = linkElement.text?.trim() ?? 'No title';
+              final url = linkElement.attributes['href'] ?? '';
 
-          return {
-            'image': imageUrl,
-            'title': title,
-            'url': fullUrl,
-          };
-        }).toList();
+              // Ajouter le préfixe "https://rci.fm/" si l'URL est relative
+              final fullUrl = url.startsWith('http') ? url : 'https://rci.fm$url';
+
+              // Extraire l'image (si présente)
+              final imageElement = article.querySelector('$div div.d-none.d-md-block div.funeral-show div.funeral-box div.image img');
+              final imageUrl = imageElement?.attributes['src'] ?? '';
+
+              articlesInPlace.add({
+                'image': imageUrl,
+                'title': title,
+                'url': fullUrl,
+              });
+            }
+          }
+
+          return articlesInPlace;
+        }).expand((articles) => articles).toList(); // Aplatir la liste des articles
 
         allArticles.addAll(pageArticles);
       } else {
@@ -163,7 +174,7 @@ class _NewsPageState extends State<NewsPage> {
   });
 
   setState(() {
-    scrapedArticlesRci  = allArticles;
+    scrapedArticlesRci = allArticles;
   });
 }
 
