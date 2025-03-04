@@ -180,7 +180,7 @@ class _NewsPageState extends State<NewsPage> {
   });
 }
 
-Future<void> scrapeArticlesRciSecondHalf() async {
+  Future<void> scrapeArticlesRciSecondHalf() async {
   final baseUrl = 'https://rci.fm/martinique/avis-d-obseques?populate=';
   final totalPages = 10; // Limitez à 10 pages pour le débogage
   List<Map<String, String>> allArticles = [];
@@ -198,12 +198,11 @@ Future<void> scrapeArticlesRciSecondHalf() async {
         final articles = document.querySelectorAll('div.colonne-droite.col-lg-6.col-md-6.col-sm-12.col-xs-12');
         print('Nombre d\'articles trouvés sur la page $page : ${articles.length}');
 
-        final pageArticles = articles.map((article) {
-          List<Map<String, String>> articlesInPlace = [];
+        for (var article in articles) {
+          // Sélectionner tous les liens des articles dans cette div
+          final linkElements = article.querySelectorAll('div.d-none.d-md-block div.funeral-show div.funeral-box div.info span a.noa');
 
-          final linkElement = article.querySelector('div.d-none.d-md-block div.funeral-show div.funeral-box div.info span a.noa');
-
-          if (linkElement != null) {
+          for (var linkElement in linkElements) {
             final title = linkElement.text?.trim() ?? 'No title';
             final url = linkElement.attributes['href'] ?? '';
 
@@ -211,21 +210,16 @@ Future<void> scrapeArticlesRciSecondHalf() async {
             final fullUrl = url.startsWith('http') ? url : 'https://rci.fm$url';
 
             // Extraire l'image (si présente)
-            final imageElement = article.querySelector('div.d-block.d-md-none.avis-mobile-sans-btn div.funeral-box div.info div.image img');
+            final imageElement = linkElement.parent?.parent?.parent?.querySelector('div.image img');
             final imageUrl = imageElement?.attributes['src'] ?? '';
 
-            articlesInPlace.add({
+            allArticles.add({
               'image': imageUrl,
               'title': title,
               'url': fullUrl,
             });
           }
-          
-
-          return articlesInPlace;
-        }).expand((articles) => articles).toList(); // Aplatir la liste des articles
-
-        allArticles.addAll(pageArticles);
+        }
       } else {
         print('Failed to load page $page: ${response.statusCode}');
       }
