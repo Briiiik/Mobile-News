@@ -39,6 +39,7 @@ class _NewsPageState extends State<NewsPage> {
   List likedArticles = [];
   List scrapedArticlesAntilla  = [];
   List scrapedArticlesRci  = [];
+  List scrapedArticlesRciObseque  = [];
   List scrapedArticlesRciSecondHalf = [];
   bool isLoading = true;
   String _searchText = '';
@@ -49,6 +50,7 @@ class _NewsPageState extends State<NewsPage> {
     fetchNews(); // Charge les articles depuis l'API
     scrapeArticles(); // Scrape les articles depuis Antilla
     scrapeArticlesRci(); // Scrape les articles depuis Rci
+    scrapeArticlesRciObseque(); // Scrape les articles depuis Rci
     scrapeArticlesRciSecondHalf(); // Scrape les articles depuis Rci (deuxième moitié)
     _loadLikedArticles(); // Charge les articles likés au démarrage
   }
@@ -110,7 +112,7 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  Future<void> scrapeArticlesRci() async {
+  Future<void> scrapeArticlesRciObseque() async {
   final baseUrl = 'https://rci.fm/martinique/avis-d-obseques?populate=';
   final totalPages = 10; // Limitez à 10 pages pour le débogage
   List<Map<String, String>> allArticles = [];
@@ -176,7 +178,7 @@ class _NewsPageState extends State<NewsPage> {
   });
 
   setState(() {
-    scrapedArticlesRci = allArticles;
+    scrapedArticlesRciObseque = allArticles;
   });
 }
 
@@ -238,6 +240,70 @@ class _NewsPageState extends State<NewsPage> {
 
   setState(() {
     scrapedArticlesRciSecondHalf = allArticles;
+  });
+}
+
+Future<void> scrapeArticlesRci() async {
+  final baseUrl = 'https://rci.fm/martinique/infos/toutes-les-infos';
+  final totalPages = 10; // Limitez à 10 pages pour le débogage
+  List<Map<String, String>> allArticles = [];
+
+  for (int page = 1; page <= totalPages; page++) {
+    final url = page == 1 ? baseUrl : '$baseUrl&pg=$page';
+    print('Scraping page $page: $url');
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final document = parser.parse(response.body);
+
+        // Sélectionner tous les articles de la deuxième partie
+        final articles = document.querySelectorAll('div.row');
+        print('Nombre d\'articles trouvés sur la page $page : ${articles.length}');
+
+        for (var article in articles) {
+          // Sélectionner tous les liens des articles dans cette div
+          final linkElements = article.querySelectorAll('div.col-lg-6  div.node--type-article article.post-show a.noa');
+          
+
+          for (var linkElement in linkElements) {
+            final titleHope = linkElement.querySelector('div.data h3');
+            final title = titleHope?.text?.trim() ?? 'No title';
+            
+
+            final url = linkElement.attributes['href'] ?? '';
+
+            // Ajouter le préfixe "https://rci.fm/" si l'URL est relative
+            final fullUrl = url.startsWith('http') ? url : 'https://rci.fm$url';
+
+            // Extraire l'image (si présente)
+            final imageElement = linkElement.querySelector('div.video-ratio img');
+            final imageUrl = imageElement?.attributes['src'] ?? '';
+
+            allArticles.add({
+              'image': imageUrl,
+              'title': title,
+              'url': fullUrl,
+            });
+          }
+        }
+      } else {
+        print('Failed to load page $page: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error during scraping page $page: $e');
+    }
+  }
+  // Afficher les articles scrapés dans les logs
+  print('Articles RCI (deuxième partie) scrapés : ${allArticles.length}');
+  allArticles.forEach((article) {
+    print('Titre : ${article['title']}');
+    print('URL : ${article['url']}');
+    print('Image : ${article['image']}');
+  });
+
+  setState(() {
+    scrapedArticlesRci = allArticles;
   });
 }
 
@@ -315,6 +381,14 @@ class _NewsPageState extends State<NewsPage> {
         return title.contains(searchText);
       }).toList();
 
+  final filteredScrapedArticlesRciObseque = _searchText.isEmpty
+    ? scrapedArticlesRciObseque
+    : scrapedArticlesRciObseque.where((article) {
+        final title = article['title']?.toLowerCase() ?? '';
+        final searchText = _searchText.trim().toLowerCase();
+        return title.contains(searchText);
+      }).toList();
+
 final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
     ? scrapedArticlesRciSecondHalf
     : scrapedArticlesRciSecondHalf.where((article) {
@@ -324,7 +398,7 @@ final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
       }).toList();
 
     return DefaultTabController(
-  length: 4, // Ajoutez un troisième onglet
+  length: 5, // Ajoutez un troisième onglet
   child: Scaffold(
     appBar: AppBar(
       title: Text('Mobile News'),
@@ -332,8 +406,9 @@ final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
         tabs: [
           Tab(text: 'News API'),
           Tab(text: 'Antilla Articles'),
-          Tab(text: 'RCI Articles'), // Nouvel onglet pour RCI
-          Tab(text: 'RCI Articles '),
+          Tab(text: 'RCI Articles'),
+          Tab(text: "Avis d'obsèque"), // Nouvel onglet pour RCI
+          Tab(text: "Avis d'obsèque"),
         ],
       ),
     ),
@@ -499,7 +574,7 @@ final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
                   },
                 ),
 
-      // Articles scrapés depuis RCI (première partie)
+
       isLoading
           ? Center(child: CircularProgressIndicator())
           : filteredScrapedArticlesRci.isEmpty
@@ -508,6 +583,80 @@ final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
                   itemCount: filteredScrapedArticlesRci.length,
                   itemBuilder: (context, index) {
                     final article = filteredScrapedArticlesRci[index];
+                    final isLiked = likedArticles.contains(article);
+
+                    return Card(
+                      margin: EdgeInsets.all(8.0),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ArticleDetailPage(article: article),
+                            ),
+                          );
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (article['image'].isNotEmpty)
+                              Image.network(
+                                article['image'],
+                                height: 150,
+                                fit: BoxFit.cover,
+                              ),
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      article['title'] ?? 'No title',
+                                      style: TextStyle(
+                                        fontSize: 16.0,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      isLiked ? Icons.favorite : Icons.favorite_border,
+                                      color: isLiked ? Colors.red : Colors.grey,
+                                    ),
+                                    onPressed: () {
+                                      _toggleLikeArticle(article);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                              child: Text(
+                                article['url'] ?? 'No URL',
+                                style: TextStyle(
+                                  fontSize: 12.0,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+      
+
+      // Articles scrapés depuis RCI (première partie)
+      isLoading
+          ? Center(child: CircularProgressIndicator())
+          : filteredScrapedArticlesRciObseque.isEmpty
+              ? Center(child: Text('Aucun résultat trouvé'))
+              : ListView.builder(
+                  itemCount: filteredScrapedArticlesRciObseque.length,
+                  itemBuilder: (context, index) {
+                    final article = filteredScrapedArticlesRciObseque[index];
                     final isLiked = likedArticles.contains(article);
 
                     return Card(
