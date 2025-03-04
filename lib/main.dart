@@ -336,9 +336,10 @@ final filteredScrapedArticlesRciSecondHalf = _searchText.isEmpty
       title: Text('Mobile News'),
       bottom: TabBar(
         tabs: [
-          Tab(text: 'API Articles'),
+          Tab(text: 'News API'),
           Tab(text: 'Antilla Articles'),
           Tab(text: 'RCI Articles'), // Nouvel onglet pour RCI
+          Tab(text: 'RCI Articles '),
         ],
       ),
     ),
