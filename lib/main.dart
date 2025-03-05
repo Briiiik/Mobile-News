@@ -249,7 +249,7 @@ Future<void> scrapeArticlesRci() async {
   List<Map<String, String>> allArticles = [];
 
   for (int page = 1; page <= totalPages; page++) {
-    final url = page == 1 ? baseUrl : '$baseUrl&pg=$page';
+    final url = page == 1 ? baseUrl : '$baseUrl?pg=$page';
     print('Scraping page $page: $url');
 
     try {
@@ -257,7 +257,7 @@ Future<void> scrapeArticlesRci() async {
       if (response.statusCode == 200) {
         final document = parser.parse(response.body);
 
-        // Sélectionner tous les articles de la deuxième partie
+        // Sélectionner tous les articles 
         final articles = document.querySelectorAll('div.row');
         print('Nombre d\'articles trouvés sur la page $page : ${articles.length}');
 
@@ -269,7 +269,6 @@ Future<void> scrapeArticlesRci() async {
           for (var linkElement in linkElements) {
             final titleHope = linkElement.querySelector('div.data h3');
             final title = titleHope?.text?.trim() ?? 'No title';
-            
 
             final url = linkElement.attributes['href'] ?? '';
 
@@ -280,11 +279,15 @@ Future<void> scrapeArticlesRci() async {
             final imageElement = linkElement.querySelector('div.video-ratio img');
             final imageUrl = imageElement?.attributes['src'] ?? '';
 
-            allArticles.add({
-              'image': imageUrl,
-              'title': title,
-              'url': fullUrl,
-            });
+            // Vérifier si l'article existe déjà dans la liste
+            final isDuplicate = allArticles.any((a) => a['url'] == fullUrl);
+            if (!isDuplicate) {
+              allArticles.add({
+                'image': imageUrl,
+                'title': title,
+                'url': fullUrl,
+              });
+            }
           }
         }
       } else {
