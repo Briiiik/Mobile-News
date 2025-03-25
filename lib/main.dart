@@ -6,7 +6,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart'; // Pour A
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Pour iOS
 import 'package:html/parser.dart' as parser; // Pour le scraping
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter_tts/flutter_tts.dart';
 import 'database_helper.dart';
 
 
@@ -37,6 +37,33 @@ class NewsPage extends StatefulWidget {
 }
 
 class _NewsPageState extends State<NewsPage> {
+  // En haut de la classe
+  final FlutterTts flutterTts = FlutterTts();
+
+  Future<void> _speakArticle(Map article) async {
+    await flutterTts.stop(); // Arrête toute lecture en cours
+    
+    final textToRead = [
+      article['title'],
+      article['description'] ?? '',
+      if (article['content'] != null) article['content'],
+    ].where((text) => text != null && text.isNotEmpty).join(". ");
+
+    if (textToRead.isNotEmpty) {
+      await flutterTts.setLanguage('fr-FR');
+      await flutterTts.speak(textToRead);
+    }
+  }
+
+  Future<void> _stopSpeaking() async {
+    await flutterTts.stop();
+  }
+
+  @override
+  void dispose() {
+    flutterTts.stop();
+    super.dispose();
+  }
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final String apiKey = '00e79c1304e94839ac703ee4b0ccf4fe';
   final String apiUrl = 'https://newsapi.org/v2/top-headlines?country=us';
@@ -507,20 +534,15 @@ class _NewsPageState extends State<NewsPage> {
                                               padding: EdgeInsets.all(8.0),
                                               child: Row(
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      article['title'] ?? 'No title',
-                                                      style: Theme.of(context).textTheme.titleLarge,
-                                                    ),
-                                                  ),
+                                                  // Bouton Like existant
                                                   IconButton(
-                                                    icon: Icon(
-                                                      isLiked ? Icons.favorite : Icons.favorite_border,
-                                                      color: isLiked ? Colors.red : Theme.of(context).iconTheme.color,
-                                                    ),
-                                                    onPressed: () {
-                                                      _toggleLikeArticle(article);
-                                                    },
+                                                    icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
+                                                    onPressed: () => _toggleLikeArticle(article),
+                                                  ),
+                                                  // Nouveau bouton TTS
+                                                  IconButton(
+                                                    icon: Icon(Icons.volume_up),
+                                                    onPressed: () => _speakArticle(article),
                                                   ),
                                                 ],
                                               ),
@@ -575,20 +597,15 @@ class _NewsPageState extends State<NewsPage> {
                                               padding: EdgeInsets.all(8.0),
                                               child: Row(
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      article['title'] ?? 'No title',
-                                                      style: Theme.of(context).textTheme.titleLarge,
-                                                    ),
-                                                  ),
+                                                  // Bouton Like existant
                                                   IconButton(
-                                                    icon: Icon(
-                                                      isLiked ? Icons.favorite : Icons.favorite_border,
-                                                      color: isLiked ? Colors.red : Theme.of(context).iconTheme.color,
-                                                    ),
-                                                    onPressed: () {
-                                                      _toggleLikeArticle(article);
-                                                    },
+                                                    icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
+                                                    onPressed: () => _toggleLikeArticle(article),
+                                                  ),
+                                                  // Nouveau bouton TTS
+                                                  IconButton(
+                                                    icon: Icon(Icons.volume_up),
+                                                    onPressed: () => _speakArticle(article),
                                                   ),
                                                 ],
                                               ),
@@ -643,20 +660,15 @@ class _NewsPageState extends State<NewsPage> {
                                               padding: EdgeInsets.all(8.0),
                                               child: Row(
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      article['title'] ?? 'No title',
-                                                      style: Theme.of(context).textTheme.titleLarge,
-                                                    ),
-                                                  ),
+                                                  // Bouton Like existant
                                                   IconButton(
-                                                    icon: Icon(
-                                                      isLiked ? Icons.favorite : Icons.favorite_border,
-                                                      color: isLiked ? Colors.red : Theme.of(context).iconTheme.color,
-                                                    ),
-                                                    onPressed: () {
-                                                      _toggleLikeArticle(article);
-                                                    },
+                                                    icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
+                                                    onPressed: () => _toggleLikeArticle(article),
+                                                  ),
+                                                  // Nouveau bouton TTS
+                                                  IconButton(
+                                                    icon: Icon(Icons.volume_up),
+                                                    onPressed: () => _speakArticle(article),
                                                   ),
                                                 ],
                                               ),
@@ -710,25 +722,21 @@ class _NewsPageState extends State<NewsPage> {
                                             Padding(
                                               padding: EdgeInsets.all(8.0),
                                               child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      article['title'] ?? 'No title',
-                                                      style: Theme.of(context).textTheme.titleLarge,
+                                                  children: [
+                                                    // Bouton Like existant
+                                                    IconButton(
+                                                      icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
+                                                      onPressed: () => _toggleLikeArticle(article),
                                                     ),
-                                                  ),
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      isLiked ? Icons.favorite : Icons.favorite_border,
-                                                      color: isLiked ? Colors.red : Theme.of(context).iconTheme.color,
+                                                    // Nouveau bouton TTS
+                                                    IconButton(
+                                                      icon: Icon(Icons.volume_up),
+                                                      onPressed: () => _speakArticle(article),
                                                     ),
-                                                    onPressed: () {
-                                                      _toggleLikeArticle(article);
-                                                    },
-                                                  ),
-                                                ],
+                                                  ],
+                                                )
                                               ),
-                                            ),
+                                            
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                                               child: Text(
@@ -779,23 +787,18 @@ class _NewsPageState extends State<NewsPage> {
                                               padding: EdgeInsets.all(8.0),
                                               child: Row(
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      article['title'] ?? 'No title',
-                                                      style: Theme.of(context).textTheme.titleLarge,
-                                                    ),
-                                                  ),
+                                                  // Bouton Like existant
                                                   IconButton(
-                                                    icon: Icon(
-                                                      isLiked ? Icons.favorite : Icons.favorite_border,
-                                                      color: isLiked ? Colors.red : Theme.of(context).iconTheme.color,
-                                                    ),
-                                                    onPressed: () {
-                                                      _toggleLikeArticle(article);
-                                                    },
+                                                    icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border),
+                                                    onPressed: () => _toggleLikeArticle(article),
+                                                  ),
+                                                  // Nouveau bouton TTS
+                                                  IconButton(
+                                                    icon: Icon(Icons.volume_up),
+                                                    onPressed: () => _speakArticle(article),
                                                   ),
                                                 ],
-                                              ),
+                                              )
                                             ),
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -838,16 +841,71 @@ class _NewsPageState extends State<NewsPage> {
   }
 }
 
-class ArticleDetailPage extends StatelessWidget {
+class ArticleDetailPage extends StatefulWidget {
   final Map article;
 
   ArticleDetailPage({required this.article});
+  
+  @override
+  _ArticleDetailPageState createState() => _ArticleDetailPageState();
+}
+
+class _ArticleDetailPageState extends State<ArticleDetailPage> {
+  late final FlutterTts flutterTts;
+  bool isSpeaking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    flutterTts = FlutterTts();
+    _setupTts();
+  }
+
+  Future<void> _setupTts() async {
+    await flutterTts.setLanguage('fr-FR');
+    flutterTts.setCompletionHandler(() {
+      setState(() => isSpeaking = false);
+    });
+  }
+
+  Future<void> _toggleSpeaking() async {
+    if (isSpeaking) {
+      await flutterTts.stop();
+      setState(() => isSpeaking = false);
+    } else {
+      final text = [
+        widget.article['title'],
+        widget.article['description'] ?? '',
+        if (widget.article['content'] != null) widget.article['content'],
+      ].join(". ");
+      
+      await flutterTts.speak(text);
+      setState(() => isSpeaking = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    flutterTts.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return WebView(
-      url: article['url'] ?? '', // URL de l'article
-      title: article['title'] ?? 'Article', // Titre de l'article
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.article['title'] ?? 'Article'),
+        actions: [
+          IconButton(
+            icon: Icon(isSpeaking ? Icons.stop : Icons.volume_up),
+            onPressed: _toggleSpeaking,
+          ),
+        ],
+      ),
+      body: WebView(
+        url: widget.article['url'] ?? '',
+        title: widget.article['title'] ?? 'Article',
+      ),
     );
   }
 }
