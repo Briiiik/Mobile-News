@@ -490,7 +490,10 @@ class _NewsPageState extends State<NewsPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => LikedArticlesPage(likedArticles: likedArticles),
+                        builder: (context) => LikedArticlesPage(
+                          likedArticles: likedArticles,
+                          onUnlikeArticle: _toggleLikeArticle,
+                        ),
                       ),
                     );
                   },
@@ -1031,23 +1034,32 @@ class _WebViewPageState extends State<WebView> {
   }
 }
 
-class LikedArticlesPage extends StatelessWidget {
+class LikedArticlesPage extends StatefulWidget {
   final List likedArticles;
+  final Function(Map) onUnlikeArticle;
 
-  LikedArticlesPage({required this.likedArticles});
+  LikedArticlesPage({
+    required this.likedArticles,
+    required this.onUnlikeArticle,
+  });
 
+  @override
+  _LikedArticlesPageState createState() => _LikedArticlesPageState();
+}
+
+class _LikedArticlesPageState extends State<LikedArticlesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text("Liked Articles"),
       ),
-      body: likedArticles.isEmpty
+      body: widget.likedArticles.isEmpty
           ? Center(child: Text("No liked articles yet!"))
           : ListView.builder(
-              itemCount: likedArticles.length,
+              itemCount: widget.likedArticles.length,
               itemBuilder: (context, index) {
-                final article = likedArticles[index];
+                final article = widget.likedArticles[index];
                 return Card(
                   margin: EdgeInsets.all(8.0),
                   child: InkWell(
@@ -1062,7 +1074,7 @@ class LikedArticlesPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (article['image'] != null)
+                        if (article['image'] != null && article['image'].isNotEmpty)
                           Image.network(
                             article['image'],
                             height: 150,
@@ -1087,6 +1099,15 @@ class LikedArticlesPage extends StatelessWidget {
                               color: Colors.grey,
                             ),
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.favorite, color: Colors.red),
+                          onPressed: () {
+                            widget.onUnlikeArticle(article);
+                            setState(() {
+                              widget.likedArticles.removeAt(index);
+                            });
+                          },
                         ),
                       ],
                     ),
