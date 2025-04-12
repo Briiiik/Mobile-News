@@ -7,7 +7,7 @@ import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart'; // Po
 import 'package:html/parser.dart' as parser; // Pour le scraping
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'database_helper.dart';
+import 'database_helper.dart'; // Database
 
 
 void main() => runApp(NewsApp());
@@ -15,19 +15,24 @@ void main() => runApp(NewsApp());
 class NewsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Mobile News',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        brightness: Brightness.light, // Thème clair par défaut
-      ),
-      darkTheme: ThemeData(
-        primarySwatch: Colors.blue,
-        brightness: Brightness.dark, // Thème sombre
-      ),
-      home: NewsPage(),
-      debugShowCheckedModeBanner: false, // Désactive la bannière "debug"
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeNotifier.instance, // Vous devrez créer cette classe
+      builder: (context, isDark, child) {
+        return MaterialApp(
+          title: 'Mobile News',
+          theme: isDark ? ThemeData.dark() : ThemeData.light(),
+          home: NewsPage(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
+  }
+}
+class ThemeNotifier {
+  static final instance = ValueNotifier<bool>(false);
+  
+  static void toggle() {
+    instance.value = !instance.value;
   }
 }
 
@@ -408,6 +413,7 @@ class _NewsPageState extends State<NewsPage> {
       _isDarkTheme = isDark;
     });
     _saveThemePreference(isDark);
+    ThemeNotifier.instance.value = isDark;
   }
 
   @override
@@ -454,24 +460,18 @@ class _NewsPageState extends State<NewsPage> {
             final searchText = _searchText.trim().toLowerCase();
             return title.contains(searchText);
           }).toList();
-
-    return MaterialApp(
-      theme: _isDarkTheme ? ThemeData.dark() : ThemeData.light(),
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Mobile News'),
-          actions: [
-            Switch(
-              value: _isDarkTheme,
-              onChanged: _toggleTheme,
-            ),
-          ],
-        ),
-        body: DefaultTabController(
+    
+    return DefaultTabController(
           length: 5,
           child: Scaffold(
             appBar: AppBar(
               title: Text('Mobile News'),
+              actions: [
+                Switch(
+                  value: _isDarkTheme,
+                  onChanged: _toggleTheme,
+                ),
+              ],
               bottom: TabBar(
                 tabs: [
                   Tab(text: 'News API'),
@@ -515,6 +515,11 @@ class _NewsPageState extends State<NewsPage> {
                                     return Card(
                                       margin: EdgeInsets.all(8.0),
                                       color: Theme.of(context).cardColor,
+                                      elevation: _isDarkTheme ? 18.0 : 2.0, // Élévation plus prononcée en mode sombre
+                                      shadowColor: _isDarkTheme ? const Color.fromARGB(255, 184, 7, 154).withOpacity(0.5) : Colors.black12,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                       child: InkWell(
                                         onTap: () {
                                           Navigator.push(
@@ -553,7 +558,7 @@ class _NewsPageState extends State<NewsPage> {
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                                               child: Text(
-                                                article['description'] ?? 'No description',
+                                                article['title'] ?? 'No title',
                                                 style: Theme.of(context).textTheme.bodyMedium,
                                               ),
                                             ),
@@ -578,6 +583,11 @@ class _NewsPageState extends State<NewsPage> {
                                     return Card(
                                       margin: EdgeInsets.all(8.0),
                                       color: Theme.of(context).cardColor,
+                                      elevation: _isDarkTheme ? 18.0 : 2.0, // Élévation plus prononcée en mode sombre
+                                      shadowColor: _isDarkTheme ? const Color.fromARGB(255, 184, 7, 154).withOpacity(0.5) : Colors.black12,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                       child: InkWell(
                                         onTap: () {
                                           Navigator.push(
@@ -641,6 +651,11 @@ class _NewsPageState extends State<NewsPage> {
                                     return Card(
                                       margin: EdgeInsets.all(8.0),
                                       color: Theme.of(context).cardColor,
+                                      elevation: _isDarkTheme ? 18.0 : 2.0, // Élévation plus prononcée en mode sombre
+                                      shadowColor: _isDarkTheme ? const Color.fromARGB(255, 184, 7, 154).withOpacity(0.5) : Colors.black12,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                       child: InkWell(
                                         onTap: () {
                                           Navigator.push(
@@ -679,7 +694,7 @@ class _NewsPageState extends State<NewsPage> {
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                                               child: Text(
-                                                article['url'] ?? 'No URL',
+                                                article['title'] ?? 'No title',
                                                 style: Theme.of(context).textTheme.bodyMedium,
                                               ),
                                             ),
@@ -704,6 +719,11 @@ class _NewsPageState extends State<NewsPage> {
                                     return Card(
                                       margin: EdgeInsets.all(8.0),
                                       color: Theme.of(context).cardColor,
+                                      elevation: _isDarkTheme ? 18.0 : 2.0, // Élévation plus prononcée en mode sombre
+                                      shadowColor: _isDarkTheme ? const Color.fromARGB(255, 184, 7, 154).withOpacity(0.5) : Colors.black12,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                       child: InkWell(
                                         onTap: () {
                                           Navigator.push(
@@ -743,7 +763,7 @@ class _NewsPageState extends State<NewsPage> {
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                                               child: Text(
-                                                article['url'] ?? 'No URL',
+                                                article['title'] ?? 'No title',
                                                 style: Theme.of(context).textTheme.bodyMedium,
                                               ),
                                             ),
@@ -768,6 +788,11 @@ class _NewsPageState extends State<NewsPage> {
                                     return Card(
                                       margin: EdgeInsets.all(8.0),
                                       color: Theme.of(context).cardColor,
+                                      elevation: _isDarkTheme ? 18.0 : 2.0, // Élévation plus prononcée en mode sombre
+                                      shadowColor: _isDarkTheme ? const Color.fromARGB(255, 184, 7, 154).withOpacity(0.5) : Colors.black12,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                       child: InkWell(
                                         onTap: () {
                                           Navigator.push(
@@ -806,7 +831,7 @@ class _NewsPageState extends State<NewsPage> {
                                             Padding(
                                               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                                               child: Text(
-                                                article['url'] ?? 'No URL',
+                                               article['title'] ?? 'No title',
                                                 style: Theme.of(context).textTheme.bodyMedium,
                                               ),
                                             ),
@@ -822,9 +847,7 @@ class _NewsPageState extends State<NewsPage> {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   void showError(String message) {
@@ -930,7 +953,7 @@ class _SearchSectionState extends State<SearchSection> {
   Widget build(BuildContext context) {
     return Container(
       color: const Color.fromARGB(74, 182, 182, 182),
-      height: 90,
+      height: 85,
       padding: EdgeInsets.fromLTRB(5, 5, 0, 0),
       child: Column(
         children: [
@@ -941,7 +964,7 @@ class _SearchSectionState extends State<SearchSection> {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color.fromARGB(224, 0, 0, 0),
+                    color: const Color.fromARGB(223, 0, 0, 0),
                     offset: Offset(0, 3),
                     blurRadius: 2,
                   )
@@ -954,18 +977,15 @@ class _SearchSectionState extends State<SearchSection> {
                 decoration: InputDecoration(
                   hintText: "Search...",
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide:
                         BorderSide(color: const Color.fromARGB(255, 20, 189, 130)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide(color: const Color.fromARGB(0, 0, 0, 0)),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide(color: Colors.blueAccent),
-                  ),
+                  
                   hintStyle: TextStyle(color: Colors.white70),
                 ),
                 style: TextStyle(color: Colors.white),
@@ -1025,10 +1045,9 @@ class _WebViewPageState extends State<WebView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
+    return 
+    Scaffold(
+      
       body: WebViewWidget(controller: _controller), // Utilisation de WebViewWidget
     );
   }
@@ -1080,6 +1099,7 @@ class _LikedArticlesPageState extends State<LikedArticlesPage> {
                             height: 150,
                             fit: BoxFit.cover,
                           ),
+                        
                         Padding(
                           padding: EdgeInsets.all(8.0),
                           child: Text(
@@ -1093,7 +1113,7 @@ class _LikedArticlesPageState extends State<LikedArticlesPage> {
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                           child: Text(
-                            article['description'] ?? article['url'] ?? 'No description',
+                            article['description'] ?? 'No description',
                             style: TextStyle(
                               fontSize: 12.0,
                               color: Colors.grey,
